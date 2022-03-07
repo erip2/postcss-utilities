@@ -83,221 +83,232 @@ function stringifyNode(node) {
 }
 
 // main plugin
-module.exports = postcss.plugin('postcss-utilities', function (opts) {
-    opts = opts || {};
+module.exports = (opts = {}) => {
     var noHoverSelector = opts.noHoverSelector || '.no-hover';
     var noJsSelector = opts.noJsSelector || '.no-js';
     var ie8 = opts.ie8 || false;
 
-    return function (css, result) {
-        css.walkAtRules('util', function (util) {
-            // get name
-            var name = util.params.split(/\(/, 1)[0].trim();
+    return {
+        postcssPlugin: 'postcss-utilities',
+        Once(root, { result }) {
+            root.walkAtRules('util', (util) => {
+                // get name
+                var name = util.params.split(/\(/, 1)[0].trim();
 
-            // check if the utility is available
-            if (names.indexOf(name) <= -1) {
-                throw util.error('Unknown utility ' + name);
-            }
+                // check if the utility is available
+                if (names.indexOf(name) <= -1) {
+                    throw util.error('Unknown utility ' + name);
+                }
 
-            // save the params in a args array
-            var args = [];
-            args.push(name); // name as first argument
-            var str = parser(util.params);
-            str.nodes.forEach(function (node) {
-                if (node.type === 'function') {
-                    node.nodes.forEach(function (i) {
-                        if (i.type === 'word' || i.type === 'function' ||
-                            i.type === 'string') {
-                            args.push(stringifyNode(i));
+                // save the params in a args array
+                var args = [];
+                args.push(name); // name as first argument
+                var str = parser(util.params);
+                str.nodes.forEach(function (node) {
+                    if (node.type === 'function') {
+                        node.nodes.forEach(function (i) {
+                            if (i.type === 'word' || i.type === 'function' ||
+                                i.type === 'string') {
+                                args.push(stringifyNode(i));
+                            }
+                        });
+                    }
+                });
+
+                switch (name) {
+                case 'aspect-ratio':
+                    if (args.length > 1 && args.length !== 3) {
+                        // eslint-disable-next-line max-len
+                        result.warn('Aspect Ratio utility requires 1 parameter:' +
+                                    ' [<int>:<int>]');
+                    }
+                    aspectRatio(util, args);
+                    break;
+                case 'border-color':
+                    if (args.length > 1) {
+                        borderColor(util, args);
+                    } else {
+                        // eslint-disable-next-line max-len
+                        result.warn('Border Color utility requires at least 1 ' +
+                                'parameter: [colors separated by spaces]');
+                    }
+                    break;
+                case 'border-top-radius':
+                    borderTopRadius(util, args);
+                    break;
+                case 'border-right-radius':
+                    borderRightRadius(util, args);
+                    break;
+                case 'border-bottom-radius':
+                    borderBottomRadius(util, args);
+                    break;
+                case 'border-left-radius':
+                    borderLeftRadius(util, args);
+                    break;
+                case 'border-style':
+                    if (args.length > 1) {
+                        borderStyle(util, args);
+                    } else {
+                        // eslint-disable-next-line max-len
+                        result.warn('Border Style utility requires at least 1 ' +
+                                // eslint-disable-next-line max-len
+                                'parameter: [border styles separated by spaces]');
+                    }
+                    break;
+                case 'border-width':
+                    if (args.length > 1) {
+                        borderWidth(util, args);
+                    } else {
+                        // eslint-disable-next-line max-len
+                        result.warn('Border Width utility requires at least 1 ' +
+                                'parameter: [size values separated by spaces]');
+                    }
+                    break;
+                case 'center':
+                    center(util, args, opts);
+                    break;
+                case 'center-block':
+                    centerBlock(util, args);
+                    break;
+                case 'circle':
+                    if (args.length !== 3) {
+                        result.warn('Circle utility requires 2 parameters:' +
+                                    ' [radius], [color]');
+                    }
+                    circle(util, args);
+                    break;
+                case 'clearfix':
+                    if (ie8) {
+                        clearfixIE8(util);
+                    } else {
+                        clearfix(util);
+                    }
+                    break;
+                case 'hd':
+                    if (args.length > 1 && args.length !== 2) {
+                        result.warn('HD Breakpoint utility requires 1 ' +
+                                    'parameter: [min-resolution]');
+                    }
+                    hdBreakpoint(util, args, postcss);
+                    break;
+                case 'hide-visually':
+                    hideVisually(util);
+                    break;
+                case 'hr':
+                    if (args.length > 1 && args.length !== 3) {
+                        result.warn('Horizontal Rule utility requires 2 ' +
+                                    'parameters: [color], [vertical-margin]');
+                    }
+                    horizontalRule(util, args);
+                    break;
+                case 'margin':
+                    if (args.length > 1) {
+                        margin(util, args);
+                    } else {
+                        result.warn('Margin utility requires at least 1 ' +
+                                'parameter: [size values separated by spaces]');
+                    }
+                    break;
+                case 'no-hover':
+                    noHover(util, postcss, noHoverSelector);
+                    break;
+                case 'no-js':
+                    noJs(util, postcss, noJsSelector);
+                    break;
+                case 'padding':
+                    if (args.length > 1) {
+                        padding(util, args);
+                    } else {
+                        result.warn('Padding utility requires at least 1 ' +
+                                'parameter: [size values separated by spaces]');
+                    }
+                    break;
+                case 'position':
+                    if (args.length > 1) {
+                        position(util, args);
+                    } else {
+                        result.warn('Position utility requires at least 1 ' +
+                                // eslint-disable-next-line max-len
+                                'parameter: [lengths values separated by spaces]');
+                    }
+                    break;
+                case 'reset-list':
+                    resetList(util);
+                    break;
+                case 'reset-text':
+                    resetText(util);
+                    break;
+                case 'size':
+                    if (args.length === 2 || args.length === 3) {
+                        size(util, args);
+                    } else {
+                        result.warn('Invalid number of parameters for Size' +
+                                    'utility: [width], [height]');
+                    }
+                    break;
+                case 'max-size':
+                    if (args.length === 2 || args.length === 3) {
+                        sizeMax(util, args);
+                    } else {
+                        // eslint-disable-next-line max-len
+                        result.warn('Invalid number of parameters for Max Size' +
+                                    'utility: [width], [height]');
+                    }
+                    break;
+                case 'min-size':
+                    if (args.length === 2 || args.length === 3) {
+                        sizeMin(util, args);
+                    } else {
+                        // eslint-disable-next-line max-len
+                        result.warn('Invalid number of parameters for Min Size' +
+                                    'utility: [width], [height]');
+                    }
+                    break;
+                case 'sticky-footer':
+                    if (args.length === 2 || args.length === 3) {
+                        stickyFooter(util, args);
+                    } else {
+                        result.warn('Invalid number of parameters for Sticky ' +
+                                    'Footer utility');
+                    }
+                    break;
+                case 'text-hide':
+                    textHide(util, args, opts);
+                    break;
+                case 'text-stroke':
+                    textStroke(util, args);
+                    break;
+                case 'triangle':
+                    if (args.length > 1 && args.length !== 4) {
+                        result.warn('Triangle utility requires 2 parameters:' +
+                                    ' [size], [color], [orientation]');
+                    }
+                    triangle(util, args);
+                    break;
+                case 'truncate':
+                    if (args.length > 1) {
+                        if (args.length !== 3) {
+                            result.warn('Truncate Multiline utility requires ' +
+                                        '2 parameters: [lines], [line-height]');
                         }
-                    });
+                        truncateMultiline(util, args);
+                    } else {
+                        truncate(util);
+                    }
+                    break;
+                case 'word-wrap':
+                    if (args.length > 1 && args.length !== 2) {
+                        result.warn('Word Wrap utility requires 1 ' +
+                                    'parameters: [wrap]');
+                    }
+                    wordWrap(util, args);
+                    break;
+                default:
+                    break;
                 }
             });
-
-            switch (name) {
-            case 'aspect-ratio':
-                if (args.length > 1 && args.length !== 3) {
-                    result.warn('Aspect Ratio utility requires 1 parameter:' +
-                                ' [<int>:<int>]');
-                }
-                aspectRatio(util, args);
-                break;
-            case 'border-color':
-                if (args.length > 1) {
-                    borderColor(util, args);
-                } else {
-                    result.warn('Border Color utility requires at least 1 ' +
-                            'parameter: [colors separated by spaces]');
-                }
-                break;
-            case 'border-top-radius':
-                borderTopRadius(util, args);
-                break;
-            case 'border-right-radius':
-                borderRightRadius(util, args);
-                break;
-            case 'border-bottom-radius':
-                borderBottomRadius(util, args);
-                break;
-            case 'border-left-radius':
-                borderLeftRadius(util, args);
-                break;
-            case 'border-style':
-                if (args.length > 1) {
-                    borderStyle(util, args);
-                } else {
-                    result.warn('Border Style utility requires at least 1 ' +
-                            'parameter: [border styles separated by spaces]');
-                }
-                break;
-            case 'border-width':
-                if (args.length > 1) {
-                    borderWidth(util, args);
-                } else {
-                    result.warn('Border Width utility requires at least 1 ' +
-                            'parameter: [size values separated by spaces]');
-                }
-                break;
-            case 'center':
-                center(util, args, opts);
-                break;
-            case 'center-block':
-                centerBlock(util, args);
-                break;
-            case 'circle':
-                if (args.length !== 3) {
-                    result.warn('Circle utility requires 2 parameters:' +
-                                ' [radius], [color]');
-                }
-                circle(util, args);
-                break;
-            case 'clearfix':
-                if (ie8) {
-                    clearfixIE8(util);
-                } else {
-                    clearfix(util);
-                }
-                break;
-            case 'hd':
-                if (args.length > 1 && args.length !== 2) {
-                    result.warn('HD Breakpoint utility requires 1 ' +
-                                'parameter: [min-resolution]');
-                }
-                hdBreakpoint(util, args, postcss);
-                break;
-            case 'hide-visually':
-                hideVisually(util);
-                break;
-            case 'hr':
-                if (args.length > 1 && args.length !== 3) {
-                    result.warn('Horizontal Rule utility requires 2 ' +
-                                'parameters: [color], [vertical-margin]');
-                }
-                horizontalRule(util, args);
-                break;
-            case 'margin':
-                if (args.length > 1) {
-                    margin(util, args);
-                } else {
-                    result.warn('Margin utility requires at least 1 ' +
-                            'parameter: [size values separated by spaces]');
-                }
-                break;
-            case 'no-hover':
-                noHover(util, postcss, noHoverSelector);
-                break;
-            case 'no-js':
-                noJs(util, postcss, noJsSelector);
-                break;
-            case 'padding':
-                if (args.length > 1) {
-                    padding(util, args);
-                } else {
-                    result.warn('Padding utility requires at least 1 ' +
-                            'parameter: [size values separated by spaces]');
-                }
-                break;
-            case 'position':
-                if (args.length > 1) {
-                    position(util, args);
-                } else {
-                    result.warn('Position utility requires at least 1 ' +
-                            'parameter: [lengths values separated by spaces]');
-                }
-                break;
-            case 'reset-list':
-                resetList(util);
-                break;
-            case 'reset-text':
-                resetText(util);
-                break;
-            case 'size':
-                if (args.length === 2 || args.length === 3) {
-                    size(util, args);
-                } else {
-                    result.warn('Invalid number of parameters for Size' +
-                                'utility: [width], [height]');
-                }
-                break;
-            case 'max-size':
-                if (args.length === 2 || args.length === 3) {
-                    sizeMax(util, args);
-                } else {
-                    result.warn('Invalid number of parameters for Max Size' +
-                                'utility: [width], [height]');
-                }
-                break;
-            case 'min-size':
-                if (args.length === 2 || args.length === 3) {
-                    sizeMin(util, args);
-                } else {
-                    result.warn('Invalid number of parameters for Min Size' +
-                                'utility: [width], [height]');
-                }
-                break;
-            case 'sticky-footer':
-                if (args.length === 2 || args.length === 3) {
-                    stickyFooter(util, args);
-                } else {
-                    result.warn('Invalid number of parameters for Sticky ' +
-                                'Footer utility');
-                }
-                break;
-            case 'text-hide':
-                textHide(util, args, opts);
-                break;
-            case 'text-stroke':
-                textStroke(util, args);
-                break;
-            case 'triangle':
-                if (args.length > 1 && args.length !== 4) {
-                    result.warn('Triangle utility requires 2 parameters:' +
-                                ' [size], [color], [orientation]');
-                }
-                triangle(util, args);
-                break;
-            case 'truncate':
-                if (args.length > 1) {
-                    if (args.length !== 3) {
-                        result.warn('Truncate Multiline utility requires ' +
-                                    '2 parameters: [lines], [line-height]');
-                    }
-                    truncateMultiline(util, args);
-                } else {
-                    truncate(util);
-                }
-                break;
-            case 'word-wrap':
-                if (args.length > 1 && args.length !== 2) {
-                    result.warn('Word Wrap utility requires 1 ' +
-                                'parameters: [wrap]');
-                }
-                wordWrap(util, args);
-                break;
-            default:
-                break;
-            }
-        });
-
+        }
     };
-});
+};
+
+module.exports.postcss = true;
